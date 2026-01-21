@@ -1,0 +1,323 @@
+<script>
+    // 在脚本开始部分添加移动端检测
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // 添加一个用户交互标志
+    let hasUserInteracted = false;
+    
+    // 修改音频初始化，添加静音属性并预加载
+    const readyAudio = new Audio('1各就位.mp3');
+    const setAudio = new Audio('2预备.mp3');
+    const goAudio = new Audio('3枪声.mp3');
+    
+    const gameReadyAudio = new Audio('game_ready.mp3');
+    const gameGoAudio = new Audio('game_end.mp3');
+    const jump1minAudio = new Audio('1min_jump.mp3');
+    const jump4x30Audio = new Audio('4x30_jump.mp3');
+    
+    // 为所有音频添加静音属性并预加载（移动端优化）
+    [readyAudio, setAudio, goAudio, gameReadyAudio, gameGoAudio, jump1minAudio, jump4x30Audio].forEach(audio => {
+        audio.muted = true; // 初始设置为静音，绕过自动播放限制
+        audio.preload = 'auto';
+        audio.load();
+    });
+    
+    // 游戏开始多个音频对象
+    const gameStartAudios = [
+        { name: '音乐1', path: '1.mp3', desc: '活泼欢快的游戏开始音乐', icon: '🎮' },
+        { name: '音乐2', path: '2.mp3', desc: '紧张刺激的游戏开始音乐', icon: '⚡' },
+        { name: '音乐3', path: '3.mp3', desc: '轻松愉快的游戏开始音乐', icon: '🎵' },
+        { name: '音乐4', path: '4.mp3', desc: '节奏感强的游戏开始音乐', icon: '🥁' },
+        { name: '音乐5', path: '5.mp3', desc: '神秘探险的游戏开始音乐', icon: '🗺️' },
+        { name: '音乐6', path: '6.mp3', desc: '竞技比赛的游戏开始音乐', icon: '🏆' },
+        { name: '音乐7', path: '7.mp3', desc: '团队合作的游戏开始音乐', icon: '🤝' },
+        { name: '音乐8', path: '8.mp3', desc: '趣味娱乐的游戏开始音乐', icon: '🎪' },
+        { name: '音乐9', path: '9.mp3', desc: '胜利庆祝的游戏开始音乐', icon: '🎉' }
+    ];
+    
+    // 加载游戏开始音频对象
+    const gameStartAudioObjects = gameStartAudios.map(item => {
+        const audio = new Audio(item.path);
+        audio.muted = true; // 初始设置为静音
+        audio.preload = 'auto';
+        audio.load();
+        return audio;
+    });
+    
+    // 修改游戏连播功能，添加移动端兼容处理
+    async function playGameSequence() {
+        if (isPlayingGameSequence || !gameAudioLoaded) return;
+        
+        isPlayingGameSequence = true;
+        gameSequenceBtn.textContent = "连播中...";
+        gameSequenceBtn.disabled = true;
+        
+        try {
+            // 移动端特别处理：如果用户还没有交互，显示提示
+            if (isMobile && !hasUserInteracted) {
+                statusEl.textContent = "请先点击任意按钮激活音频播放";
+                // 等待用户点击
+                await new Promise(resolve => {
+                    const interactionHandler = () => {
+                        hasUserInteracted = true;
+                        document.removeEventListener('click', interactionHandler);
+                        document.removeEventListener('touchstart', interactionHandler);
+                        resolve();
+                    };
+                    document.addEventListener('click', interactionHandler);
+                    document.addEventListener('touchstart', interactionHandler);
+                    
+                    // 10秒后超时
+                    setTimeout(() => {
+                        if (!hasUserInteracted) {
+                            document.removeEventListener('click', interactionHandler);
+                            document.removeEventListener('touchstart', interactionHandler);
+                            throw new Error('等待用户交互超时');
+                        }
+                    }, 10000);
+                });
+            }
+            
+            // 游戏准备
+            stopCurrentGameAudio();
+            statusEl.textContent = "游戏准备！";
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                gameReadyAudio.muted = false;
+            }
+            
+            gameReadyAudio.currentTime = 0;
+            await gameReadyAudio.play().catch(e => {
+                console.error("播放游戏准备音频失败:", e);
+                // 如果是权限错误，尝试重新播放
+                if (e.name === 'NotAllowedError') {
+                    return handleMobilePlayError(gameReadyAudio, "游戏准备");
+                }
+                throw e;
+            });
+            
+            // 等待音频播放完毕
+            await new Promise(resolve => {
+                const checkEnd = () => {
+                    if (gameReadyAudio.currentTime >= gameReadyAudio.duration || gameReadyAudio.ended) {
+                        gameReadyAudio.removeEventListener('timeupdate', checkEnd);
+                        gameReadyAudio.removeEventListener('ended', resolve);
+                        resolve();
+                    }
+                };
+                gameReadyAudio.addEventListener('timeupdate', checkEnd);
+                gameReadyAudio.addEventListener('ended', resolve);
+            });
+            
+            // 随机延迟（5-20秒）
+            const delay1 = getGameSequenceDelay();
+            gameDelayValueEl.textContent = (delay1 / 1000).toFixed(0);
+            statusEl.textContent = `等待 ${(delay1 / 1000).toFixed(0)} 秒...`;
+            await new Promise(resolve => setTimeout(resolve, delay1));
+            
+            // 游戏开始 - 随机选择一个音频
+            stopCurrentGameAudio();
+            const randomIndex = Math.floor(Math.random() * gameStartAudios.length);
+            const selectedAudio = gameStartAudioObjects[randomIndex];
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                selectedAudio.muted = false;
+            }
+            
+            statusEl.textContent = `${gameStartAudios[randomIndex].name}`;
+            selectedAudio.currentTime = 0;
+            await selectedAudio.play().catch(e => {
+                console.error("播放游戏开始音频失败:", e);
+                // 如果是权限错误，尝试重新播放
+                if (e.name === 'NotAllowedError') {
+                    return handleMobilePlayError(selectedAudio, "游戏开始");
+                }
+                throw e;
+            });
+            
+            // 等待游戏开始音频播放完毕
+            await new Promise(resolve => {
+                const checkEnd = () => {
+                    if (selectedAudio.currentTime >= selectedAudio.duration || selectedAudio.ended) {
+                        selectedAudio.removeEventListener('timeupdate', checkEnd);
+                        selectedAudio.removeEventListener('ended', resolve);
+                        resolve();
+                    }
+                };
+                selectedAudio.addEventListener('timeupdate', checkEnd);
+                selectedAudio.addEventListener('ended', resolve);
+            });
+            
+            // 游戏结束
+            stopCurrentGameAudio();
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                gameGoAudio.muted = false;
+            }
+            
+            statusEl.textContent = "游戏结束！";
+            gameGoAudio.currentTime = 0;
+            await gameGoAudio.play().catch(e => {
+                console.error("播放游戏结束音频失败:", e);
+                // 如果是权限错误，尝试重新播放
+                if (e.name === 'NotAllowedError') {
+                    return handleMobilePlayError(gameGoAudio, "游戏结束");
+                }
+                throw e;
+            });
+            
+            // 等待游戏结束音频播放完毕
+            await new Promise(resolve => {
+                const checkEnd = () => {
+                    if (gameGoAudio.currentTime >= gameGoAudio.duration || gameGoAudio.ended) {
+                        gameGoAudio.removeEventListener('timeupdate', checkEnd);
+                        gameGoAudio.removeEventListener('ended', resolve);
+                        resolve();
+                    }
+                };
+                gameGoAudio.addEventListener('timeupdate', checkEnd);
+                gameGoAudio.addEventListener('ended', resolve);
+            });
+            
+            // 完成
+            statusEl.textContent = "游戏指令完成！";
+        } catch (error) {
+            console.error("播放错误:", error);
+            if (error.message === '等待用户交互超时') {
+                statusEl.textContent = "移动端需要点击屏幕激活音频播放";
+            } else if (error.name === 'NotAllowedError') {
+                statusEl.textContent = "请先点击页面激活音频播放权限";
+            } else {
+                statusEl.textContent = "播放失败，请检查音频文件";
+            }
+        } finally {
+            isPlayingGameSequence = false;
+            gameSequenceBtn.textContent = "开始连播";
+            gameSequenceBtn.disabled = false;
+            if (gameSequenceTimeout) {
+                clearTimeout(gameSequenceTimeout);
+                gameSequenceTimeout = null;
+            }
+        }
+    }
+    
+    // 处理移动端播放错误的函数
+    function handleMobilePlayError(audio, audioName) {
+        return new Promise((resolve, reject) => {
+            statusEl.textContent = `移动端需要点击确认播放${audioName}音频`;
+            
+            // 创建确认按钮
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = `播放${audioName}`;
+            confirmBtn.style.cssText = `
+                background: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                margin: 10px;
+                cursor: pointer;
+                font-size: 1rem;
+            `;
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = '取消';
+            cancelBtn.style.cssText = `
+                background: #f44336;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                margin: 10px;
+                cursor: pointer;
+                font-size: 1rem;
+            `;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex;
+                justify-content: center;
+                margin-top: 15px;
+            `;
+            buttonContainer.appendChild(confirmBtn);
+            buttonContainer.appendChild(cancelBtn);
+            
+            // 临时添加到状态元素
+            const originalContent = statusEl.innerHTML;
+            statusEl.innerHTML = '';
+            statusEl.appendChild(document.createTextNode(`移动端需要点击确认播放${audioName}音频`));
+            statusEl.appendChild(buttonContainer);
+            
+            // 按钮事件处理
+            confirmBtn.addEventListener('click', async () => {
+                try {
+                    buttonContainer.remove();
+                    statusEl.textContent = `播放${audioName}...`;
+                    audio.currentTime = 0;
+                    await audio.play();
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            
+            cancelBtn.addEventListener('click', () => {
+                buttonContainer.remove();
+                statusEl.textContent = "已取消播放";
+                reject(new Error('用户取消播放'));
+            });
+            
+            // 10秒后自动取消
+            setTimeout(() => {
+                if (buttonContainer.parentNode) {
+                    buttonContainer.remove();
+                    statusEl.textContent = "播放超时，请重试";
+                    reject(new Error('播放确认超时'));
+                }
+            }, 10000);
+        });
+    }
+    
+    // 修改所有按钮点击事件，标记用户已交互
+    document.addEventListener('DOMContentLoaded', () => {
+        // 为所有按钮添加点击事件，标记用户已交互
+        const allButtons = document.querySelectorAll('button');
+        allButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                hasUserInteracted = true;
+                
+                // 如果是移动端，取消所有音频的静音
+                if (isMobile) {
+                    [readyAudio, setAudio, goAudio, gameReadyAudio, gameGoAudio, 
+                     jump1minAudio, jump4x30Audio, ...gameStartAudioObjects].forEach(audio => {
+                        audio.muted = false;
+                    });
+                }
+            }, { once: true }); // 只执行一次
+        });
+        
+        // 添加页面触摸/点击事件监听
+        document.addEventListener('touchstart', () => {
+            hasUserInteracted = true;
+            if (isMobile) {
+                [readyAudio, setAudio, goAudio, gameReadyAudio, gameGoAudio, 
+                 jump1minAudio, jump4x30Audio, ...gameStartAudioObjects].forEach(audio => {
+                    audio.muted = false;
+                });
+            }
+        }, { once: true });
+        
+        document.addEventListener('click', () => {
+            hasUserInteracted = true;
+            if (isMobile) {
+                [readyAudio, setAudio, goAudio, gameReadyAudio, gameGoAudio, 
+                 jump1minAudio, jump4x30Audio, ...gameStartAudioObjects].forEach(audio => {
+                    audio.muted = false;
+                });
+            }
+        }, { once: true });
+    });
+</script>
