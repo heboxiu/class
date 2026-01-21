@@ -1,156 +1,995 @@
-<script>
-    // 在脚本开始部分添加移动端检测
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // 添加一个用户交互标志
-    let hasUserInteracted = false;
-    
-    // 修改音频初始化，添加静音属性并预加载
-    const readyAudio = new Audio('1各就位.mp3');
-    const setAudio = new Audio('2预备.mp3');
-    const goAudio = new Audio('3枪声.mp3');
-    
-    const gameReadyAudio = new Audio('game_ready.mp3');
-    const gameGoAudio = new Audio('game_end.mp3');
-    const jump1minAudio = new Audio('1min_jump.mp3');
-    const jump4x30Audio = new Audio('4x30_jump.mp3');
-    
-    // 为所有音频添加静音属性并预加载（移动端优化）
-    [readyAudio, setAudio, goAudio, gameReadyAudio, gameGoAudio, jump1minAudio, jump4x30Audio].forEach(audio => {
-        audio.muted = true; // 初始设置为静音，绕过自动播放限制
-        audio.preload = 'auto';
-        audio.load();
-    });
-    
-    // 游戏开始多个音频对象
-    const gameStartAudios = [
-        { name: '音乐1', path: '1.mp3', desc: '活泼欢快的游戏开始音乐', icon: '🎮' },
-        { name: '音乐2', path: '2.mp3', desc: '紧张刺激的游戏开始音乐', icon: '⚡' },
-        { name: '音乐3', path: '3.mp3', desc: '轻松愉快的游戏开始音乐', icon: '🎵' },
-        { name: '音乐4', path: '4.mp3', desc: '节奏感强的游戏开始音乐', icon: '🥁' },
-        { name: '音乐5', path: '5.mp3', desc: '神秘探险的游戏开始音乐', icon: '🗺️' },
-        { name: '音乐6', path: '6.mp3', desc: '竞技比赛的游戏开始音乐', icon: '🏆' },
-        { name: '音乐7', path: '7.mp3', desc: '团队合作的游戏开始音乐', icon: '🤝' },
-        { name: '音乐8', path: '8.mp3', desc: '趣味娱乐的游戏开始音乐', icon: '🎪' },
-        { name: '音乐9', path: '9.mp3', desc: '胜利庆祝的游戏开始音乐', icon: '🎉' }
-    ];
-    
-    // 加载游戏开始音频对象
-    const gameStartAudioObjects = gameStartAudios.map(item => {
-        const audio = new Audio(item.path);
-        audio.muted = true; // 初始设置为静音
-        audio.preload = 'auto';
-        audio.load();
-        return audio;
-    });
-    
-    // 修改游戏连播功能，添加移动端兼容处理
-    async function playGameSequence() {
-        if (isPlayingGameSequence || !gameAudioLoaded) return;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>体育课堂发令系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
         
-        isPlayingGameSequence = true;
-        gameSequenceBtn.textContent = "连播中...";
-        gameSequenceBtn.disabled = true;
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            overflow-x: hidden;
+        }
         
-        try {
-            // 移动端特别处理：如果用户还没有交互，显示提示
-            if (isMobile && !hasUserInteracted) {
-                statusEl.textContent = "请先点击任意按钮激活音频播放";
-                // 等待用户点击
-                await new Promise(resolve => {
-                    const interactionHandler = () => {
-                        hasUserInteracted = true;
-                        document.removeEventListener('click', interactionHandler);
-                        document.removeEventListener('touchstart', interactionHandler);
-                        resolve();
-                    };
-                    document.addEventListener('click', interactionHandler);
-                    document.addEventListener('touchstart', interactionHandler);
-                    
-                    // 10秒后超时
-                    setTimeout(() => {
-                        if (!hasUserInteracted) {
-                            document.removeEventListener('click', interactionHandler);
-                            document.removeEventListener('touchstart', interactionHandler);
-                            throw new Error('等待用户交互超时');
-                        }
-                    }, 10000);
-                });
+        .container {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        
+        h1 {
+            margin-bottom: 15px;
+            font-size: clamp(1.8rem, 6vw, 2.5rem);
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .description {
+            margin-bottom: 25px;
+            line-height: 1.6;
+            font-size: clamp(1rem, 4vw, 1.1rem);
+        }
+        
+        /* 标签页样式 */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            font-size: clamp(0.9rem, 3.5vw, 1.1rem);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            color: white;
+            background: transparent;
+        }
+        
+        .tab.active {
+            background: #2196F3;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* 田径功能区样式 */
+        .commands {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+        
+        .command-btn {
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(1.1rem, 4.5vw, 1.3rem);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .command-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .command-btn:active {
+            transform: translateY(1px);
+        }
+        
+        .command-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #ready-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        #set-btn {
+            background: #FF9800;
+            color: white;
+        }
+        
+        #go-btn {
+            background: #F44336;
+            color: white;
+        }
+        
+        .game-btn {
+            background: #00BCD4;
+            color: white;
+        }
+        
+        .jump-btn {
+            background: #9C27B0;
+            color: white;
+        }
+        
+        .sequence-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .sequence-section h2 {
+            margin-bottom: 15px;
+            font-size: clamp(1.3rem, 5vw, 1.6rem);
+        }
+        
+        .sequence-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .sequence-btn {
+            background: #2196F3;
+            color: white;
+            padding: 16px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(1.1rem, 4.5vw, 1.3rem);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 300px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sequence-btn:hover {
+            background: #0b7dda;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .sequence-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .delay-display {
+            margin-top: 10px;
+            font-size: clamp(0.9rem, 3.5vw, 1rem);
+        }
+        
+        /* 跳绳功能区样式 */
+        .progress-container {
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background-color: #4CAF50;
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.1s linear;
+        }
+        
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(1rem, 4.5vw, 1.3rem);
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .instructions {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            text-align: left;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: clamp(1.1rem, 4.5vw, 1.3rem);
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            font-size: clamp(0.9rem, 3.5vw, 1rem);
+            line-height: 1.4;
+        }
+        
+        footer {
+            margin-top: 25px;
+            text-align: center;
+            font-size: clamp(0.8rem, 3vw, 0.9rem);
+            opacity: 0.8;
+        }
+        
+        .audio-info {
+            margin-top: 15px;
+            font-size: clamp(0.8rem, 3vw, 0.9rem);
+            color: #aaa;
+        }
+        
+        /* 九宫格音乐选择模态框样式 */
+        .music-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+        
+        .music-modal-content {
+            background-color: rgba(0, 0, 0, 0.95);
+            padding: 25px 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .music-modal h3 {
+            margin-bottom: 25px;
+            color: #00BCD4;
+            font-size: clamp(1.2rem, 4vw, 1.6rem);
+            text-align: center;
+        }
+        
+        /* 九宫格样式 */
+        .music-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .music-grid-item {
+            aspect-ratio: 1/1;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        .music-grid-item:hover {
+            transform: translateY(-5px) scale(1.03);
+            background-color: rgba(0, 188, 212, 0.2);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+        
+        .music-grid-item.selected {
+            border-color: #00BCD4;
+            background-color: rgba(0, 188, 212, 0.25);
+            box-shadow: 0 8px 16px rgba(0, 188, 212, 0.3);
+        }
+        
+        .music-grid-icon {
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            margin-bottom: 8px;
+            color: #00BCD4;
+        }
+        
+        .music-grid-title {
+            font-weight: bold;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.2;
+            width: 100%;
+        }
+        
+        .music-grid-desc {
+            font-size: clamp(0.65rem, 2vw, 0.8rem);
+            color: #aaa;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.2;
+            width: 100%;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .modal-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(1rem, 3.5vw, 1.1rem);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        
+        .confirm-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .cancel-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        /* 横屏优化 */
+        @media (min-width: 768px) {
+            .commands {
+                flex-direction: row;
             }
             
-            // 游戏准备
+            .command-btn {
+                min-width: 150px;
+            }
+            
+            .music-grid {
+                gap: 20px;
+            }
+        }
+        
+        /* 超大屏幕优化 */
+        @media (min-width: 1200px) {
+            .container {
+                padding: 30px;
+            }
+        }
+        
+        /* 小屏幕适配 - 九宫格变为2列 */
+        @media (max-width: 480px) {
+            .music-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+        }
+        
+        /* 防止iOS Safari缩放问题 */
+        @supports (-webkit-touch-callout: none) {
+            body {
+                min-height: -webkit-fill-available;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>体育课堂发令系统</h1>
+        
+        <p class="description">
+            体育课拓展功能
+        </p>
+        
+        <!-- 标签页导航 -->
+        <div class="tabs">
+            <button class="tab active" data-tab="track">田径发令</button>
+            <button class="tab" data-tab="game">游戏功能</button>
+            <button class="tab" data-tab="jump">跳绳功能</button>
+        </div>
+        
+        <!-- 田径功能区 -->
+        <div class="tab-content active" id="track-tab">
+            <div class="commands">
+                <button id="ready-btn" class="command-btn">各就位</button>
+                <button id="set-btn" class="command-btn">预备</button>
+                <button id="go-btn" class="command-btn">跑令</button>
+            </div>
+            
+            <div class="sequence-section">
+                <h2>连播功能</h2>
+                <div class="sequence-controls">
+                    <button id="sequence-btn" class="sequence-btn">开始连播</button>
+                    <div class="delay-display" id="delay-info">
+                        随机衔接时间: <span id="delay-value">0</span> 秒
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 游戏功能区 -->
+        <div class="tab-content" id="game-tab">
+            <div class="commands">
+                <button id="game-ready-btn" class="command-btn game-btn">游戏准备</button>
+                <button id="game-set-btn" class="command-btn game-btn">游戏开始</button>
+                <button id="game-go-btn" class="command-btn game-btn">游戏结束</button>
+            </div>
+            
+            <div class="sequence-section">
+                <h2>连播功能</h2>
+                <div class="sequence-controls">
+                    <button id="game-sequence-btn" class="sequence-btn">开始连播</button>
+                    <div class="delay-display" id="game-delay-info">
+                        延迟时间: <span id="game-delay-value">0</span> 秒
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 跳绳功能区 -->
+        <div class="tab-content" id="jump-tab">
+            <div class="commands">
+                <button id="jump-1min-btn" class="command-btn jump-btn">1分钟跳绳</button>
+                <button id="jump-4x30-btn" class="command-btn jump-btn">4×30秒接力跳绳</button>
+            </div>
+            
+            <div class="progress-container" id="jump-1min-progress" style="display: none;">
+                <div class="progress-bar" id="jump-1min-bar"></div>
+                <div class="time-display">
+                    <span id="jump-1min-current">0:00</span>
+                    <span id="jump-1min-duration">0:00</span>
+                </div>
+            </div>
+            
+            <div class="progress-container" id="jump-4x30-progress" style="display: none;">
+                <div class="progress-bar" id="jump-4x30-bar"></div>
+                <div class="time-display">
+                    <span id="jump-4x30-current">0:00</span>
+                    <span id="jump-4x30-duration">0:00</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status" id="status">
+            系统准备就绪
+        </div>
+        
+        <div class="instructions">
+            <h3>使用说明</h3>
+            <ul>
+                <li>田径发令：点击"各就位"、"预备"、"跑令"按钮单独播放相应口令</li>
+                <li>游戏功能：点击"游戏准备"、"游戏结束"按钮单独播放相应口令</li>
+                <li>游戏开始：点击"游戏开始"按钮，选择音乐后播放</li>
+                <li>游戏连播：点击"开始连播"按钮，系统将按顺序播放三个口令，有随机延迟时间(5-20秒)</li>
+                <li>跳绳功能：点击"1分钟跳绳"或"4×30秒接力跳绳"播放相应跳绳音乐</li>
+                <li>进度显示：跳绳音乐播放时会显示播放进度和总时长</li>
+                <li><strong>移动端提示</strong>：首次使用需点击任意按钮激活音频播放权限</li>
+            </ul>
+            <div class="audio-info">
+                注意：请确保您的音频文件路径正确，并放在与HTML文件相同的目录下。
+            </div>
+        </div>
+        
+        <footer>
+            <p>体育课堂发令系统 &copy; 2025</p>
+        </footer>
+    </div>
+    
+    <!-- 游戏开始音乐选择模态框 - 九宫格样式 -->
+    <div class="music-modal" id="music-modal">
+        <div class="music-modal-content">
+            <h3>选择游戏开始音乐</h3>
+            <div class="music-grid" id="music-grid">
+                <!-- 音乐选项将在这里动态生成 -->
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel-btn" id="cancel-music-btn">取消</button>
+                <button class="modal-btn confirm-btn" id="confirm-music-btn">确定播放</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 移动端兼容性优化 ==========
+        // 移动端检测
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // 用户交互标志
+        let hasUserInteracted = false;
+        
+        // ========== 获取DOM元素 ==========
+        const readyBtn = document.getElementById('ready-btn');
+        const setBtn = document.getElementById('set-btn');
+        const goBtn = document.getElementById('go-btn');
+        const sequenceBtn = document.getElementById('sequence-btn');
+        const jump1minBtn = document.getElementById('jump-1min-btn');
+        const jump4x30Btn = document.getElementById('jump-4x30-btn');
+        const statusEl = document.getElementById('status');
+        const delayValueEl = document.getElementById('delay-value');
+        
+        // 游戏功能区DOM元素
+        const gameReadyBtn = document.getElementById('game-ready-btn');
+        const gameSetBtn = document.getElementById('game-set-btn');
+        const gameGoBtn = document.getElementById('game-go-btn');
+        const gameSequenceBtn = document.getElementById('game-sequence-btn');
+        const gameDelayValueEl = document.getElementById('game-delay-value');
+        
+        // 音乐选择模态框元素
+        const musicModal = document.getElementById('music-modal');
+        const musicGrid = document.getElementById('music-grid');
+        const cancelMusicBtn = document.getElementById('cancel-music-btn');
+        const confirmMusicBtn = document.getElementById('confirm-music-btn');
+        
+        // 进度条元素
+        const jump1minProgress = document.getElementById('jump-1min-progress');
+        const jump1minBar = document.getElementById('jump-1min-bar');
+        const jump1minCurrent = document.getElementById('jump-1min-current');
+        const jump1minDuration = document.getElementById('jump-1min-duration');
+        
+        const jump4x30Progress = document.getElementById('jump-4x30-progress');
+        const jump4x30Bar = document.getElementById('jump-4x30-bar');
+        const jump4x30Current = document.getElementById('jump-4x30-current');
+        const jump4x30Duration = document.getElementById('jump-4x30-duration');
+        
+        // 标签页元素
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // ========== 创建音频对象 ==========
+        // 田径发令音频（移动端优化：初始静音）
+        const readyAudio = new Audio('1各就位.mp3');
+        const setAudio = new Audio('2预备.mp3');
+        const goAudio = new Audio('3枪声.mp3');
+        
+        // 游戏功能音频（移动端优化：初始静音）
+        const gameReadyAudio = new Audio('ation.mp3');
+        const gameGoAudio = new Audio('stop.mp3');
+        
+        // 跳绳音频（移动端优化：初始静音）
+        const jump1minAudio = new Audio('1min_jump.mp3');
+        const jump4x30Audio = new Audio('4x30_jump.mp3');
+        
+        // 游戏开始多个音频对象
+        const gameStartAudios = [
+            { 
+                name: '音乐1', 
+                path: '1.mp3', 
+                desc: '活泼欢快的游戏开始音乐',
+                icon: '🎮'
+            },
+            { 
+                name: '音乐2', 
+                path: '2.mp3', 
+                desc: '紧张刺激的游戏开始音乐',
+                icon: '⚡'
+            },
+            { 
+                name: '音乐3', 
+                path: '3.mp3', 
+                desc: '轻松愉快的游戏开始音乐',
+                icon: '🎵'
+            },
+            { 
+                name: '音乐4', 
+                path: '4.mp3', 
+                desc: '节奏感强的游戏开始音乐',
+                icon: '🥁'
+            },
+            { 
+                name: '音乐5', 
+                path: '5.mp3', 
+                desc: '神秘探险的游戏开始音乐',
+                icon: '🗺️'
+            },
+            { 
+                name: '音乐6', 
+                path: '6.mp3', 
+                desc: '竞技比赛的游戏开始音乐',
+                icon: '🏆'
+            },
+            { 
+                name: '音乐7', 
+                path: '7.mp3', 
+                desc: '团队合作的游戏开始音乐',
+                icon: '🤝'
+            },
+            { 
+                name: '音乐8', 
+                path: '8.mp3', 
+                desc: '趣味娱乐的游戏开始音乐',
+                icon: '🎪'
+            },
+            { 
+                name: '音乐9', 
+                path: '9.mp3', 
+                desc: '胜利庆祝的游戏开始音乐',
+                icon: '🎉'
+            }
+        ];
+        
+        // 加载游戏开始音频对象（移动端优化：初始静音）
+        const gameStartAudioObjects = gameStartAudios.map(item => {
+            const audio = new Audio(item.path);
+            audio.muted = true; // 初始设置为静音
+            audio.preload = 'auto';
+            audio.load();
+            return audio;
+        });
+        
+        // ========== 移动端音频优化设置 ==========
+        // 为所有音频添加静音属性和预加载（移动端优化）
+        [readyAudio, setAudio, goAudio, gameReadyAudio, gameGoAudio, jump1minAudio, jump4x30Audio].forEach(audio => {
+            audio.muted = true; // 初始设置为静音，绕过自动播放限制
+            audio.preload = 'auto';
+            audio.load();
+        });
+        
+        // ========== 音频状态管理 ==========
+        let audioLoaded = false;
+        let gameAudioLoaded = false;
+        let jumpAudioLoaded = false;
+        
+        // 当前正在播放的游戏音频（用于停止功能）
+        let currentGameAudio = null;
+        
+        // 当前选择的游戏开始音乐索引
+        let selectedMusicIndex = 0;
+        
+        // 检查音频是否加载完成
+        function checkAudioLoaded() {
+            if (!audioLoaded) {
+                statusEl.textContent = "音频加载中...";
+                readyBtn.disabled = true;
+                setBtn.disabled = true;
+                goBtn.disabled = true;
+                sequenceBtn.disabled = true;
+            }
+            
+            if (!gameAudioLoaded) {
+                gameReadyBtn.disabled = true;
+                gameSetBtn.disabled = true;
+                gameGoBtn.disabled = true;
+                gameSequenceBtn.disabled = true;
+            }
+            
+            if (!jumpAudioLoaded) {
+                jump1minBtn.disabled = true;
+                jump4x30Btn.disabled = true;
+            }
+        }
+        
+        // 田径音频加载完成后的回调
+        function onAudioLoaded() {
+            audioLoaded = true;
+            statusEl.textContent = "系统准备就绪";
+            readyBtn.disabled = false;
+            setBtn.disabled = false;
+            goBtn.disabled = false;
+            sequenceBtn.disabled = false;
+        }
+        
+        // 游戏音频加载完成后的回调
+        function onGameAudioLoaded() {
+            gameAudioLoaded = true;
+            gameReadyBtn.disabled = false;
+            gameSetBtn.disabled = false;
+            gameGoBtn.disabled = false;
+            gameSequenceBtn.disabled = false;
+        }
+        
+        // 跳绳音频加载完成后的回调
+        function onJumpAudioLoaded() {
+            jumpAudioLoaded = true;
+            jump1minBtn.disabled = false;
+            jump4x30Btn.disabled = false;
+            
+            // 设置音频时长显示
+            jump1minDuration.textContent = formatTime(jump1minAudio.duration);
+            jump4x30Duration.textContent = formatTime(jump4x30Audio.duration);
+        }
+        
+        // ========== 音频加载事件监听 ==========
+        // 田径音频加载
+        let loadedCount = 0;
+        const totalAudio = 3;
+        
+        function audioLoadedHandler() {
+            loadedCount++;
+            if (loadedCount === totalAudio) {
+                onAudioLoaded();
+            }
+        }
+        
+        readyAudio.addEventListener('canplaythrough', audioLoadedHandler);
+        setAudio.addEventListener('canplaythrough', audioLoadedHandler);
+        goAudio.addEventListener('canplaythrough', audioLoadedHandler);
+        
+        // 游戏音频加载
+        let gameLoadedCount = 0;
+        const totalGameAudio = 1 + gameStartAudioObjects.length + 1; // 准备 + 多个开始 + 结束
+        
+        function gameAudioLoadedHandler() {
+            gameLoadedCount++;
+            if (gameLoadedCount >= totalGameAudio) {
+                onGameAudioLoaded();
+            }
+        }
+        
+        gameReadyAudio.addEventListener('canplaythrough', gameAudioLoadedHandler);
+        gameGoAudio.addEventListener('canplaythrough', gameAudioLoadedHandler);
+        
+        // 监听所有游戏开始音频
+        gameStartAudioObjects.forEach(audio => {
+            audio.addEventListener('canplaythrough', gameAudioLoadedHandler);
+        });
+        
+        // 跳绳音频加载
+        let jumpLoadedCount = 0;
+        const totalJumpAudio = 2;
+        
+        function jumpAudioLoadedHandler() {
+            jumpLoadedCount++;
+            if (jumpLoadedCount === totalJumpAudio) {
+                onJumpAudioLoaded();
+            }
+        }
+        
+        jump1minAudio.addEventListener('canplaythrough', jumpAudioLoadedHandler);
+        jump4x30Audio.addEventListener('canplaythrough', jumpAudioLoadedHandler);
+        
+        // ========== 田径功能区功能 ==========
+        // 播放"各就位"口令
+        function playReady() {
+            if (!audioLoaded) return;
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                readyAudio.muted = false;
+            }
+            
+            statusEl.textContent = "各就位！";
+            readyAudio.currentTime = 0;
+            readyAudio.play().catch(e => {
+                console.error("播放各就位音频失败:", e);
+                statusEl.textContent = "播放失败，请检查音频文件";
+            });
+        }
+        
+        // 播放"预备"口令
+        function playSet() {
+            if (!audioLoaded) return;
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                setAudio.muted = false;
+            }
+            
+            statusEl.textContent = "预备！";
+            setAudio.currentTime = 0;
+            setAudio.play().catch(e => {
+                console.error("播放预备音频失败:", e);
+                statusEl.textContent = "播放失败，请检查音频文件";
+            });
+        }
+        
+        // 播放"跑令"口令
+        function playGo() {
+            if (!audioLoaded) return;
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                goAudio.muted = false;
+            }
+            
+            statusEl.textContent = "跑！";
+            goAudio.currentTime = 0;
+            goAudio.play().catch(e => {
+                console.error("播放跑令音频失败:", e);
+                statusEl.textContent = "播放失败，请检查音频文件";
+            });
+        }
+        
+        // 生成随机延迟时间（1-3秒）
+        function getRandomDelay() {
+            return Math.floor(Math.random() * 2000) + 1000; // 1-3秒
+        }
+        
+        // 田径连播功能
+        let isPlayingSequence = false;
+        
+        async function playSequence() {
+            if (isPlayingSequence || !audioLoaded) return;
+            
+            isPlayingSequence = true;
+            sequenceBtn.textContent = "连播中...";
+            sequenceBtn.disabled = true;
+            
+            try {
+                // 各就位
+                playReady();
+                await new Promise(resolve => {
+                    readyAudio.onended = resolve;
+                });
+                
+                // 随机延迟
+                const delay1 = getRandomDelay();
+                delayValueEl.textContent = (delay1 / 1000).toFixed(1);
+                statusEl.textContent = `等待 ${(delay1 / 1000).toFixed(1)} 秒...`;
+                await new Promise(resolve => setTimeout(resolve, delay1));
+                
+                // 预备
+                playSet();
+                await new Promise(resolve => {
+                    setAudio.onended = resolve;
+                });
+                
+                // 随机延迟
+                const delay2 = getRandomDelay();
+                delayValueEl.textContent = (delay2 / 1000).toFixed(1);
+                statusEl.textContent = `等待 ${(delay2 / 1000).toFixed(1)} 秒...`;
+                await new Promise(resolve => setTimeout(resolve, delay2));
+                
+                // 跑令
+                playGo();
+                await new Promise(resolve => {
+                    goAudio.onended = resolve;
+                });
+                
+                // 完成
+                statusEl.textContent = "发令完成！";
+            } catch (error) {
+                console.error("播放错误:", error);
+                statusEl.textContent = "播放出错，请重试";
+            } finally {
+                isPlayingSequence = false;
+                sequenceBtn.textContent = "开始连播";
+                sequenceBtn.disabled = false;
+            }
+        }
+        
+        // ========== 游戏功能区功能 ==========
+        // 停止当前播放的游戏音频
+        function stopCurrentGameAudio() {
+            if (currentGameAudio && !currentGameAudio.paused) {
+                currentGameAudio.pause();
+                currentGameAudio.currentTime = 0;
+            }
+        }
+        
+        // 播放"游戏准备"口令
+        function playGameReady() {
+            if (!gameAudioLoaded) return;
+            
+            // 停止当前播放的音频
             stopCurrentGameAudio();
-            statusEl.textContent = "游戏准备！";
             
             // 移动端处理：取消静音
             if (isMobile) {
                 gameReadyAudio.muted = false;
             }
             
+            statusEl.textContent = "游戏准备！";
             gameReadyAudio.currentTime = 0;
-            await gameReadyAudio.play().catch(e => {
+            gameReadyAudio.play().catch(e => {
                 console.error("播放游戏准备音频失败:", e);
-                // 如果是权限错误，尝试重新播放
-                if (e.name === 'NotAllowedError') {
-                    return handleMobilePlayError(gameReadyAudio, "游戏准备");
+                // 移动端特殊处理
+                if (isMobile && e.name === 'NotAllowedError') {
+                    handleMobilePlayError(gameReadyAudio, "游戏准备");
+                } else {
+                    statusEl.textContent = "播放失败，请检查音频文件";
                 }
-                throw e;
             });
             
-            // 等待音频播放完毕
-            await new Promise(resolve => {
-                const checkEnd = () => {
-                    if (gameReadyAudio.currentTime >= gameReadyAudio.duration || gameReadyAudio.ended) {
-                        gameReadyAudio.removeEventListener('timeupdate', checkEnd);
-                        gameReadyAudio.removeEventListener('ended', resolve);
-                        resolve();
-                    }
-                };
-                gameReadyAudio.addEventListener('timeupdate', checkEnd);
-                gameReadyAudio.addEventListener('ended', resolve);
-            });
+            currentGameAudio = gameReadyAudio;
+        }
+        
+        // 播放"游戏开始"口令 - 播放指定索引的音乐
+        function playGameSet(index = null) {
+            if (!gameAudioLoaded) return;
             
-            // 随机延迟（5-20秒）
-            const delay1 = getGameSequenceDelay();
-            gameDelayValueEl.textContent = (delay1 / 1000).toFixed(0);
-            statusEl.textContent = `等待 ${(delay1 / 1000).toFixed(0)} 秒...`;
-            await new Promise(resolve => setTimeout(resolve, delay1));
-            
-            // 游戏开始 - 随机选择一个音频
+            // 停止当前播放的音频
             stopCurrentGameAudio();
-            const randomIndex = Math.floor(Math.random() * gameStartAudios.length);
-            const selectedAudio = gameStartAudioObjects[randomIndex];
+            
+            // 如果未指定索引，使用当前选择的索引
+            const musicIndex = index !== null ? index : selectedMusicIndex;
+            
+            // 确保索引在有效范围内
+            const safeIndex = Math.max(0, Math.min(musicIndex, gameStartAudios.length - 1));
             
             // 移动端处理：取消静音
+            const selectedAudio = gameStartAudioObjects[safeIndex];
             if (isMobile) {
                 selectedAudio.muted = false;
             }
             
-            statusEl.textContent = `${gameStartAudios[randomIndex].name}`;
+            statusEl.textContent = `${gameStartAudios[safeIndex].name}`;
             selectedAudio.currentTime = 0;
-            await selectedAudio.play().catch(e => {
+            selectedAudio.play().catch(e => {
                 console.error("播放游戏开始音频失败:", e);
-                // 如果是权限错误，尝试重新播放
-                if (e.name === 'NotAllowedError') {
-                    return handleMobilePlayError(selectedAudio, "游戏开始");
+                // 移动端特殊处理
+                if (isMobile && e.name === 'NotAllowedError') {
+                    handleMobilePlayError(selectedAudio, "游戏开始");
+                } else {
+                    statusEl.textContent = "播放失败，请检查音频文件";
                 }
-                throw e;
             });
             
-            // 等待游戏开始音频播放完毕
-            await new Promise(resolve => {
-                const checkEnd = () => {
-                    if (selectedAudio.currentTime >= selectedAudio.duration || selectedAudio.ended) {
-                        selectedAudio.removeEventListener('timeupdate', checkEnd);
-                        selectedAudio.removeEventListener('ended', resolve);
-                        resolve();
-                    }
-                };
-                selectedAudio.addEventListener('timeupdate', checkEnd);
-                selectedAudio.addEventListener('ended', resolve);
-            });
+            currentGameAudio = selectedAudio;
+        }
+        
+        // 播放"游戏结束"口令
+        function playGameGo() {
+            if (!gameAudioLoaded) return;
             
-            // 游戏结束
+            // 停止当前播放的音频
             stopCurrentGameAudio();
             
             // 移动端处理：取消静音
@@ -160,129 +999,497 @@
             
             statusEl.textContent = "游戏结束！";
             gameGoAudio.currentTime = 0;
-            await gameGoAudio.play().catch(e => {
+            gameGoAudio.play().catch(e => {
                 console.error("播放游戏结束音频失败:", e);
-                // 如果是权限错误，尝试重新播放
-                if (e.name === 'NotAllowedError') {
-                    return handleMobilePlayError(gameGoAudio, "游戏结束");
+                // 移动端特殊处理
+                if (isMobile && e.name === 'NotAllowedError') {
+                    handleMobilePlayError(gameGoAudio, "游戏结束");
+                } else {
+                    statusEl.textContent = "播放失败，请检查音频文件";
                 }
-                throw e;
             });
             
-            // 等待游戏结束音频播放完毕
-            await new Promise(resolve => {
-                const checkEnd = () => {
-                    if (gameGoAudio.currentTime >= gameGoAudio.duration || gameGoAudio.ended) {
-                        gameGoAudio.removeEventListener('timeupdate', checkEnd);
-                        gameGoAudio.removeEventListener('ended', resolve);
-                        resolve();
+            currentGameAudio = gameGoAudio;
+        }
+        
+        // 生成游戏连播的随机延迟时间（5-20秒）
+        function getGameSequenceDelay() {
+            return Math.floor(Math.random() * 16 + 5) * 1000; // 5-20秒，转换为毫秒
+        }
+        
+        // 游戏连播功能
+        let isPlayingGameSequence = false;
+        let gameSequenceTimeout = null;
+        
+        async function playGameSequence() {
+            if (isPlayingGameSequence || !gameAudioLoaded) return;
+            
+            isPlayingGameSequence = true;
+            gameSequenceBtn.textContent = "连播中...";
+            gameSequenceBtn.disabled = true;
+            
+            try {
+                // 移动端特别处理：如果用户还没有交互，显示提示
+                if (isMobile && !hasUserInteracted) {
+                    statusEl.textContent = "请先点击任意按钮激活音频播放";
+                    // 等待用户点击
+                    await new Promise(resolve => {
+                        const interactionHandler = () => {
+                            hasUserInteracted = true;
+                            document.removeEventListener('click', interactionHandler);
+                            document.removeEventListener('touchstart', interactionHandler);
+                            resolve();
+                        };
+                        document.addEventListener('click', interactionHandler);
+                        document.addEventListener('touchstart', interactionHandler);
+                        
+                        // 10秒后超时
+                        setTimeout(() => {
+                            if (!hasUserInteracted) {
+                                document.removeEventListener('click', interactionHandler);
+                                document.removeEventListener('touchstart', interactionHandler);
+                                throw new Error('等待用户交互超时');
+                            }
+                        }, 10000);
+                    });
+                }
+                
+                // 游戏准备
+                stopCurrentGameAudio();
+                statusEl.textContent = "游戏准备！";
+                
+                // 移动端处理：取消静音
+                if (isMobile) {
+                    gameReadyAudio.muted = false;
+                }
+                
+                gameReadyAudio.currentTime = 0;
+                await gameReadyAudio.play().catch(e => {
+                    console.error("播放游戏准备音频失败:", e);
+                    // 如果是权限错误，尝试重新播放
+                    if (e.name === 'NotAllowedError') {
+                        return handleMobilePlayError(gameReadyAudio, "游戏准备");
                     }
-                };
-                gameGoAudio.addEventListener('timeupdate', checkEnd);
-                gameGoAudio.addEventListener('ended', resolve);
-            });
-            
-            // 完成
-            statusEl.textContent = "游戏指令完成！";
-        } catch (error) {
-            console.error("播放错误:", error);
-            if (error.message === '等待用户交互超时') {
-                statusEl.textContent = "移动端需要点击屏幕激活音频播放";
-            } else if (error.name === 'NotAllowedError') {
-                statusEl.textContent = "请先点击页面激活音频播放权限";
-            } else {
-                statusEl.textContent = "播放失败，请检查音频文件";
+                    throw e;
+                });
+                
+                // 等待音频播放完毕
+                await new Promise(resolve => {
+                    const checkEnd = () => {
+                        if (gameReadyAudio.currentTime >= gameReadyAudio.duration || gameReadyAudio.ended) {
+                            gameReadyAudio.removeEventListener('timeupdate', checkEnd);
+                            gameReadyAudio.removeEventListener('ended', resolve);
+                            resolve();
+                        }
+                    };
+                    gameReadyAudio.addEventListener('timeupdate', checkEnd);
+                    gameReadyAudio.addEventListener('ended', resolve);
+                });
+                
+                // 随机延迟（5-20秒）
+                const delay1 = getGameSequenceDelay();
+                gameDelayValueEl.textContent = (delay1 / 1000).toFixed(0);
+                statusEl.textContent = `等待 ${(delay1 / 1000).toFixed(0)} 秒...`;
+                await new Promise(resolve => setTimeout(resolve, delay1));
+                
+                // 游戏开始 - 随机选择一个音频
+                stopCurrentGameAudio();
+                const randomIndex = Math.floor(Math.random() * gameStartAudios.length);
+                const selectedAudio = gameStartAudioObjects[randomIndex];
+                
+                // 移动端处理：取消静音
+                if (isMobile) {
+                    selectedAudio.muted = false;
+                }
+                
+                statusEl.textContent = `${gameStartAudios[randomIndex].name}`;
+                selectedAudio.currentTime = 0;
+                await selectedAudio.play().catch(e => {
+                    console.error("播放游戏开始音频失败:", e);
+                    // 如果是权限错误，尝试重新播放
+                    if (e.name === 'NotAllowedError') {
+                        return handleMobilePlayError(selectedAudio, "游戏开始");
+                    }
+                    throw e;
+                });
+                
+                // 等待游戏开始音频播放完毕
+                await new Promise(resolve => {
+                    const checkEnd = () => {
+                        if (selectedAudio.currentTime >= selectedAudio.duration || selectedAudio.ended) {
+                            selectedAudio.removeEventListener('timeupdate', checkEnd);
+                            selectedAudio.removeEventListener('ended', resolve);
+                            resolve();
+                        }
+                    };
+                    selectedAudio.addEventListener('timeupdate', checkEnd);
+                    selectedAudio.addEventListener('ended', resolve);
+                });
+                
+                // 游戏结束
+                stopCurrentGameAudio();
+                
+                // 移动端处理：取消静音
+                if (isMobile) {
+                    gameGoAudio.muted = false;
+                }
+                
+                statusEl.textContent = "游戏结束！";
+                gameGoAudio.currentTime = 0;
+                await gameGoAudio.play().catch(e => {
+                    console.error("播放游戏结束音频失败:", e);
+                    // 如果是权限错误，尝试重新播放
+                    if (e.name === 'NotAllowedError') {
+                        return handleMobilePlayError(gameGoAudio, "游戏结束");
+                    }
+                    throw e;
+                });
+                
+                // 等待游戏结束音频播放完毕
+                await new Promise(resolve => {
+                    const checkEnd = () => {
+                        if (gameGoAudio.currentTime >= gameGoAudio.duration || gameGoAudio.ended) {
+                            gameGoAudio.removeEventListener('timeupdate', checkEnd);
+                            gameGoAudio.removeEventListener('ended', resolve);
+                            resolve();
+                        }
+                    };
+                    gameGoAudio.addEventListener('timeupdate', checkEnd);
+                    gameGoAudio.addEventListener('ended', resolve);
+                });
+                
+                // 完成
+                statusEl.textContent = "游戏指令完成！";
+            } catch (error) {
+                console.error("播放错误:", error);
+                if (error.message === '等待用户交互超时') {
+                    statusEl.textContent = "移动端需要点击屏幕激活音频播放";
+                } else if (error.name === 'NotAllowedError') {
+                    statusEl.textContent = "请先点击页面激活音频播放权限";
+                } else {
+                    statusEl.textContent = "播放失败，请检查音频文件";
+                }
+            } finally {
+                isPlayingGameSequence = false;
+                gameSequenceBtn.textContent = "开始连播";
+                gameSequenceBtn.disabled = false;
+                if (gameSequenceTimeout) {
+                    clearTimeout(gameSequenceTimeout);
+                    gameSequenceTimeout = null;
+                }
             }
-        } finally {
-            isPlayingGameSequence = false;
-            gameSequenceBtn.textContent = "开始连播";
-            gameSequenceBtn.disabled = false;
+        }
+        
+        // 停止游戏连播
+        function stopGameSequence() {
             if (gameSequenceTimeout) {
                 clearTimeout(gameSequenceTimeout);
                 gameSequenceTimeout = null;
             }
+            
+            // 停止当前播放的音频
+            stopCurrentGameAudio();
+            
+            isPlayingGameSequence = false;
+            gameSequenceBtn.textContent = "开始连播";
+            gameSequenceBtn.disabled = false;
         }
-    }
-    
-    // 处理移动端播放错误的函数
-    function handleMobilePlayError(audio, audioName) {
-        return new Promise((resolve, reject) => {
-            statusEl.textContent = `移动端需要点击确认播放${audioName}音频`;
-            
-            // 创建确认按钮
-            const confirmBtn = document.createElement('button');
-            confirmBtn.textContent = `播放${audioName}`;
-            confirmBtn.style.cssText = `
-                background: #4CAF50;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
-                margin: 10px;
-                cursor: pointer;
-                font-size: 1rem;
-            `;
-            
-            const cancelBtn = document.createElement('button');
-            cancelBtn.textContent = '取消';
-            cancelBtn.style.cssText = `
-                background: #f44336;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
-                margin: 10px;
-                cursor: pointer;
-                font-size: 1rem;
-            `;
-            
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = `
-                display: flex;
-                justify-content: center;
-                margin-top: 15px;
-            `;
-            buttonContainer.appendChild(confirmBtn);
-            buttonContainer.appendChild(cancelBtn);
-            
-            // 临时添加到状态元素
-            const originalContent = statusEl.innerHTML;
-            statusEl.innerHTML = '';
-            statusEl.appendChild(document.createTextNode(`移动端需要点击确认播放${audioName}音频`));
-            statusEl.appendChild(buttonContainer);
-            
-            // 按钮事件处理
-            confirmBtn.addEventListener('click', async () => {
-                try {
+        
+        // ========== 移动端音频错误处理 ==========
+        // 处理移动端播放错误的函数
+        function handleMobilePlayError(audio, audioName) {
+            return new Promise((resolve, reject) => {
+                statusEl.textContent = `移动端需要点击确认播放${audioName}音频`;
+                
+                // 创建确认按钮
+                const confirmBtn = document.createElement('button');
+                confirmBtn.textContent = `播放${audioName}`;
+                confirmBtn.style.cssText = `
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    margin: 10px;
+                    cursor: pointer;
+                    font-size: 1rem;
+                `;
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '取消';
+                cancelBtn.style.cssText = `
+                    background: #f44336;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    margin: 10px;
+                    cursor: pointer;
+                    font-size: 1rem;
+                `;
+                
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.cssText = `
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 15px;
+                `;
+                buttonContainer.appendChild(confirmBtn);
+                buttonContainer.appendChild(cancelBtn);
+                
+                // 临时添加到状态元素
+                const originalContent = statusEl.innerHTML;
+                statusEl.innerHTML = '';
+                statusEl.appendChild(document.createTextNode(`移动端需要点击确认播放${audioName}音频`));
+                statusEl.appendChild(buttonContainer);
+                
+                // 按钮事件处理
+                confirmBtn.addEventListener('click', async () => {
+                    try {
+                        buttonContainer.remove();
+                        statusEl.textContent = `播放${audioName}...`;
+                        audio.currentTime = 0;
+                        await audio.play();
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+                
+                cancelBtn.addEventListener('click', () => {
                     buttonContainer.remove();
-                    statusEl.textContent = `播放${audioName}...`;
-                    audio.currentTime = 0;
-                    await audio.play();
-                    resolve();
-                } catch (err) {
-                    reject(err);
+                    statusEl.textContent = "已取消播放";
+                    reject(new Error('用户取消播放'));
+                });
+                
+                // 10秒后自动取消
+                setTimeout(() => {
+                    if (buttonContainer.parentNode) {
+                        buttonContainer.remove();
+                        statusEl.textContent = "播放超时，请重试";
+                        reject(new Error('播放确认超时'));
+                    }
+                }, 10000);
+            });
+        }
+        
+        // ========== 音乐选择模态框功能 ==========
+        // 显示音乐选择模态框
+        function showMusicSelection() {
+            if (!gameAudioLoaded) return;
+            
+            // 清空之前的选项
+            musicGrid.innerHTML = '';
+            
+            // 创建音乐选项 - 九宫格样式
+            gameStartAudios.forEach((music, index) => {
+                const gridItem = document.createElement('div');
+                gridItem.className = `music-grid-item ${index === selectedMusicIndex ? 'selected' : ''}`;
+                gridItem.dataset.index = index;
+                
+                gridItem.innerHTML = `
+                    <div class="music-grid-title">${music.name}</div>
+                `;
+                
+                gridItem.addEventListener('click', () => {
+                    // 移除所有选项的选中状态
+                    document.querySelectorAll('.music-grid-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    
+                    // 添加当前选项的选中状态
+                    gridItem.classList.add('selected');
+                    selectedMusicIndex = index;
+                });
+                
+                musicGrid.appendChild(gridItem);
+            });
+            
+            // 显示模态框
+            musicModal.style.display = 'flex';
+        }
+        
+        // 隐藏音乐选择模态框
+        function hideMusicSelection() {
+            musicModal.style.display = 'none';
+        }
+        
+        // ========== 跳绳功能区功能 ==========
+        // 格式化时间显示 (秒 -> 分:秒)
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        
+        // 更新进度条
+        function updateProgress(audio, bar, currentTimeEl, durationEl) {
+            const currentTime = audio.currentTime;
+            const duration = audio.duration;
+            
+            // 更新进度条
+            const progressPercent = (currentTime / duration) * 100;
+            bar.style.width = `${progressPercent}%`;
+            
+            // 更新时间显示
+            currentTimeEl.textContent = formatTime(currentTime);
+            durationEl.textContent = formatTime(duration);
+        }
+        
+        // 1分钟跳绳
+        function start1minJump() {
+            if (!jumpAudioLoaded) return;
+            
+            // 重置其他跳绳进度条
+            jump4x30Progress.style.display = 'none';
+            jump4x30Audio.pause();
+            jump4x30Audio.currentTime = 0;
+            
+            // 显示进度条
+            jump1minProgress.style.display = 'block';
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                jump1minAudio.muted = false;
+            }
+            
+            // 播放音乐
+            statusEl.textContent = "播放1分钟跳绳音乐";
+            jump1minAudio.currentTime = 0;
+            jump1minAudio.play().catch(e => {
+                console.error("播放1分钟跳绳音乐失败:", e);
+                // 移动端特殊处理
+                if (isMobile && e.name === 'NotAllowedError') {
+                    handleMobilePlayError(jump1minAudio, "1分钟跳绳");
+                } else {
+                    statusEl.textContent = "播放失败，请检查音频文件";
                 }
             });
             
-            cancelBtn.addEventListener('click', () => {
-                buttonContainer.remove();
-                statusEl.textContent = "已取消播放";
-                reject(new Error('用户取消播放'));
+            // 更新进度条
+            clearInterval(jumpInterval);
+            jumpInterval = setInterval(() => {
+                updateProgress(jump1minAudio, jump1minBar, jump1minCurrent, jump1minDuration);
+                
+                // 检查是否播放完毕
+                if (jump1minAudio.currentTime >= jump1minAudio.duration) {
+                    clearInterval(jumpInterval);
+                    statusEl.textContent = "1分钟跳绳音乐播放完毕";
+                }
+            }, 100);
+        }
+        
+        // 4×30秒跳绳
+        function start4x30Jump() {
+            if (!jumpAudioLoaded) return;
+            
+            // 重置其他跳绳进度条
+            jump1minProgress.style.display = 'none';
+            jump1minAudio.pause();
+            jump1minAudio.currentTime = 0;
+            
+            // 显示进度条
+            jump4x30Progress.style.display = 'block';
+            
+            // 移动端处理：取消静音
+            if (isMobile) {
+                jump4x30Audio.muted = false;
+            }
+            
+            // 播放音乐
+            statusEl.textContent = "播放4×30秒跳绳音乐";
+            jump4x30Audio.currentTime = 0;
+            jump4x30Audio.play().catch(e => {
+                console.error("播放4×30秒跳绳音乐失败:", e);
+                // 移动端特殊处理
+                if (isMobile && e.name === 'NotAllowedError') {
+                    handleMobilePlayError(jump4x30Audio, "4×30秒跳绳");
+                } else {
+                    statusEl.textContent = "播放失败，请检查音频文件";
+                }
             });
             
-            // 10秒后自动取消
-            setTimeout(() => {
-                if (buttonContainer.parentNode) {
-                    buttonContainer.remove();
-                    statusEl.textContent = "播放超时，请重试";
-                    reject(new Error('播放确认超时'));
+            // 更新进度条
+            clearInterval(jumpInterval);
+            jumpInterval = setInterval(() => {
+                updateProgress(jump4x30Audio, jump4x30Bar, jump4x30Current, jump4x30Duration);
+                
+                // 检查是否播放完毕
+                if (jump4x30Audio.currentTime >= jump4x30Audio.duration) {
+                    clearInterval(jumpInterval);
+                    statusEl.textContent = "4×30秒跳绳音乐播放完毕";
                 }
-            }, 10000);
+            }, 100);
+        }
+        
+        // ========== 通用功能 ==========
+        // 标签页切换功能
+        function switchTab(tabId) {
+            // 移除所有标签页的活动状态
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // 激活选中的标签页
+            document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+            
+            // 切换到其他标签页时停止游戏连播
+            if (tabId !== 'game' && isPlayingGameSequence) {
+                stopGameSequence();
+                statusEl.textContent = "已停止游戏连播";
+            }
+            
+            // 隐藏音乐选择模态框
+            hideMusicSelection();
+        }
+        
+        // ========== 事件监听 ==========
+        readyBtn.addEventListener('click', playReady);
+        setBtn.addEventListener('click', playSet);
+        goBtn.addEventListener('click', playGo);
+        sequenceBtn.addEventListener('click', playSequence);
+        
+        gameReadyBtn.addEventListener('click', playGameReady);
+        gameSetBtn.addEventListener('click', showMusicSelection); // 改为显示音乐选择模态框
+        gameGoBtn.addEventListener('click', playGameGo);
+        gameSequenceBtn.addEventListener('click', playGameSequence);
+        
+        jump1minBtn.addEventListener('click', start1minJump);
+        jump4x30Btn.addEventListener('click', start4x30Jump);
+        
+        // 音乐选择模态框事件监听
+        cancelMusicBtn.addEventListener('click', hideMusicSelection);
+        confirmMusicBtn.addEventListener('click', () => {
+            hideMusicSelection();
+            playGameSet(selectedMusicIndex);
         });
-    }
-    
-    // 修改所有按钮点击事件，标记用户已交互
-    document.addEventListener('DOMContentLoaded', () => {
+        
+        // 点击模态框外部关闭
+        musicModal.addEventListener('click', (e) => {
+            if (e.target === musicModal) {
+                hideMusicSelection();
+            }
+        });
+        
+        // 标签页事件监听
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                switchTab(tabId);
+            });
+        });
+        
+        // ========== 初始化 ==========
+        // 初始化检查
+        checkAudioLoaded();
+        
+        // 初始化显示
+        delayValueEl.textContent = "0.0";
+        gameDelayValueEl.textContent = "0";
+        
+        // ========== 移动端交互激活 ==========
         // 为所有按钮添加点击事件，标记用户已交互
         const allButtons = document.querySelectorAll('button');
         allButtons.forEach(button => {
@@ -319,5 +1526,26 @@
                 });
             }
         }, { once: true });
-    });
-</script>
+        
+        // ========== 防止iOS Safari缩放问题 ==========
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+        
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // ========== 全局变量 ==========
+        // 用于管理跳绳进度条更新的定时器
+        let jumpInterval;
+    </script>
+</body>
+</html>
